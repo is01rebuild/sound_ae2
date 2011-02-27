@@ -1,0 +1,30 @@
+$ANDROID_SRC/system/extras/sound/以下にあるファイルを編集したものです。
+
+$ANDROID_SRC/system/extras/sound/ 以下に展開し
+
+$ANDROID_SRC ディレクトリにて
+$ source envsetup.sh
+$ cd system/extras/sound
+$ mm -j4
+でmakeできます。
+
+$ANDROID_SRC ディレクトリにて
+$ANDROID_SRC/out/target/product/generic/system/bin/sound が実行ファイルです。
+$ cd out/target/product/generic/system/bin/
+$ adb -s push sound /system/bin/
+で実機に転送
+
+$ adb shell
+$ sound
+で実行
+
+ae2drv.ko のデバッグ＆トレース有効版を入れていれば、
+$ cat /dev/ae2debug
+で情報がとれますが、量が多いので、もう一つのターミナルをひらき
+$ adb shell cat /dev/ae2debug > ae2debug.txt
+などとして、ae2debug.txt をテキストエディタで開くことをおすすめします。
+同様に、dmesgも
+$ adb shell dmesg > dmesg.txt
+などとするとよいかと思います。
+
+以上
