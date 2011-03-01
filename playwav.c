@@ -14,6 +14,8 @@
 #include <linux/i2c.h>
 
 #include "sound.h"
+#include "msm_audio.h"
+#include "msm8k_cad_devices.h"
 
 #if 1
 #define D(fmt, args...) printf("%s():"fmt, __FUNCTION__  ,##args)
@@ -38,14 +40,6 @@
 #define AE2_SERVICE_START_COUNT   4561
 #define AE2_SERVICE_END_COUNT     5725
 
-#define AUDIO_IOCTL_MAGIC 'a'
-#define AUDIO_START        _IOW(AUDIO_IOCTL_MAGIC, 0, unsigned)
-#define AUDIO_STOP         _IOW(AUDIO_IOCTL_MAGIC, 1, unsigned)
-#define AUDIO_FLUSH        _IOW(AUDIO_IOCTL_MAGIC, 2, unsigned)
-#define AUDIO_GET_CONFIG   _IOR(AUDIO_IOCTL_MAGIC, 3, unsigned)
-#define AUDIO_SET_CONFIG   _IOW(AUDIO_IOCTL_MAGIC, 4, unsigned)
-#define AUDIO_GET_STATS    _IOR(AUDIO_IOCTL_MAGIC, 5, unsigned)
-
 #define MA_IOC_MAGIC                     'x'
 #define MA_IOCTL_WAIT                    _IOW(  MA_IOC_MAGIC, 0, unsigned int )
 #define MA_IOCTL_SLEEP 	         _IOW(  MA_IOC_MAGIC, 1, unsigned int )
@@ -60,7 +54,7 @@
 
 
 
-
+/*// kernel ヘッダファイルをincludeしたのでコメントアウト
 struct msm_audio_config {
     uint32_t buffer_size;
     uint32_t buffer_count;
@@ -74,7 +68,7 @@ struct msm_audio_stats {
     uint32_t out_bytes;
     uint32_t unused[3];
 };
-
+*/
 
 //-----------------------------------------------------------------------------------
 // 型宣言
@@ -837,9 +831,39 @@ int main(int argc, char **argv)
     }
     
     if (play) {
+        // msm_audio_dev_ctrl 初期化
+        int fd_madc1,fd_madc2;
+        fd_madc1 = open("/dev/msm_audio_dev_ctrl", O_RDWR);
+        unsigned int vol=100;
+        if( fd_madc1 != 0 ){
+            ioctl( fd_madc1 , AUDIO_SET_VOLUME , &vol );
+            close( fd_madc1 );
+        }
+
+        fd_madc1 = open("/dev/msm_audio_dev_ctrl", O_RDWR);
+        unsigned int dev=0x30;//I2S_RX_SPKR
+        if( fd_madc1 != 0 ){
+            ioctl( fd_madc1 , AUDIO_SWITCH_DEVICE , &dev );
+
+            fd_madc2 = open("/dev/msm_audio_dev_ctrl", O_RDWR);
+            if( fd_madc2 != 0 ) {
+                ioctl( fd_madc2 , AUDIO_SET_VOLUME , &vol );
+                close( fd_madc2 );
+            }
+            dev=0x06;//AUDIO_SWITCH_DEVICE
+            ioctl( fd_madc1 , AUDIO_SWITCH_DEVICE , &dev );
+            struct msm_mute_info mute;
+            mute.mute=SND_MUTE_UNMUTED; // #define SND_MUTE_UNMUTED 0
+            mute.path=CAD_TX_DEVICE; // #define CAD_TX_DEVICE  0x01
+            ioctl( fd_madc1 , AUDIO_SET_MUTE , &mute );
+
+            close( fd_madc1 );
+        }
+
         // ae2 ドライバー初期化開始
         ae2_info.init_flag=0;
         ae2_info.fd = open("/dev/ae2", O_RDWR);
+        //pthread_t pt_adc,pt_adc1;
         pthread_t pt_zero,pt;
         // スレッド生成
         D("ae2 init start\n");
@@ -892,18 +916,17 @@ int main(int argc, char **argv)
             close(fd);
         }
         
-	/*
-      if(ae2_info.fd>=0)
-      close(ae2_info.fd);
-	*/
-        
     } else {
         return wav_rec(fn, channels, rate);
     }
     
-    // メモリ開放
+
  end:
+    // メモリ開放
     mem_free();
+    // /dev/ae2 close
+    if(ae2_info.fd>=0)
+        close(ae2_info.fd);
 
     return 0;
 }
