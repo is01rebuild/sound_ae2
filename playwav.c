@@ -36,8 +36,10 @@
 #define DEBUG_DATA_DUMP_READ_MAX    100000 // unsigned char u_int8 and unsigned short u_int16
 
 #define AE2_INIT_START_COUNT              1
-#define AE2_INIT_END_COUNT             4560
-#define AE2_SERVICE_START_COUNT   4561
+#define AE2_INIT_END1_COUNT            3495 // I2C アクセス直前まで
+#define AE2_INIT_END2_COUNT            4562 // 初期化完了まで
+
+#define AE2_SERVICE_START_COUNT   4563
 #define AE2_SERVICE_END_COUNT     5725
 
 #define MA_IOC_MAGIC                     'x'
@@ -534,45 +536,40 @@ int mp3_play(const char *fn)
     close(afd);
     return 0;
 }
+//-----------------------------------------------------------------------------------------------------
+void ae2_ioctl_play(int i){
+    int dCnt;
+    struct cmd_dump cmd_dump;
+    cmd_dump = dump[i];
+    DS("dump[%d].cmd=%08x;//",i, cmd_dump.cmd );//, cmdToText[_IOC_NR(cmd)] );
 
-void * ae2_ctrl_func( void * arg ) {
-    (void)arg;
-    pthread_detach( pthread_self() );
-    
-    usleep(200);
-    
-    int i,dCnt;
-    for(i=AE2_INIT_START_COUNT;i<=AE2_INIT_END_COUNT;i++) {
-    //for(i=AE2_INIT_START_COUNT; i<=50; i++) {
-        DS("dump[%d].cmd=%08x;//",i, dump[i].cmd );//, cmdToText[_IOC_NR(dump[i].cmd)] );
-
-        switch ( dump[i].cmd ) {
+    switch ( cmd_dump.cmd ) {
         case MA_IOCTL_WAIT://0
-            ioctl(ae2_info.fd, MA_IOCTL_WAIT, dump[i].arg );
-            DS("ioctl(ae2_info.fd, MA_IOCTL_WAIT, %u );\n",dump[i].arg);
+            ioctl(ae2_info.fd, MA_IOCTL_WAIT, cmd_dump.arg );
+            DS("ioctl(ae2_info.fd, MA_IOCTL_WAIT, %u );\n",cmd_dump.arg);
             break;
             
         case MA_IOCTL_SLEEP://1
-            ioctl(ae2_info.fd, MA_IOCTL_SLEEP, dump[i].arg );
-            DS("ioctl(ae2_info.fd, MA_IOCTL_SLEEP, %u );\n",dump[i].arg);
+            ioctl(ae2_info.fd, MA_IOCTL_SLEEP, cmd_dump.arg );
+            DS("ioctl(ae2_info.fd, MA_IOCTL_SLEEP, %u );\n",cmd_dump.arg);
           break;
           
         case MA_IOCTL_WRITE_REG_WAIT://2
-            DS("ioctl(ae2_info.fd, MA_IOCTL_WRITE_REG_WAIT, dumpWrite[%u] );\n",dump[i].arg);
+            DS("ioctl(ae2_info.fd, MA_IOCTL_WRITE_REG_WAIT, dumpWrite[%u] );\n",cmd_dump.arg);
             unsigned int pDataNum;
-            switch( dumpWrite[dump[i].arg].dSize) {
+            switch( dumpWrite[cmd_dump.arg].dSize) {
             case  sizeof( unsigned char ):
-                if( ((unsigned char *)dumpWrite[dump[i].arg].pData-dumpWriteByte)==0 ) {
+                if( ((unsigned char *)dumpWrite[cmd_dump.arg].pData-dumpWriteByte)==0 ) {
                     pDataNum=0;
                 } else {
-                    pDataNum=((unsigned int)((unsigned char *)dumpWrite[dump[i].arg].pData-dumpWriteByte))/dumpWrite[dump[i].arg].dSize;
+                    pDataNum=((unsigned int)((unsigned char *)dumpWrite[cmd_dump.arg].pData-dumpWriteByte))/dumpWrite[cmd_dump.arg].dSize;
                 }
                 break;
             case sizeof( unsigned short ):
-                if( ((unsigned short *)dumpWrite[dump[i].arg].pData-dumpWriteWord)==0 ) {
+                if( ((unsigned short *)dumpWrite[cmd_dump.arg].pData-dumpWriteWord)==0 ) {
                     pDataNum=0;
                 } else {
-                    pDataNum=((unsigned int)((unsigned short *)dumpWrite[dump[i].arg].pData-dumpWriteWord))/dumpWrite[dump[i].arg].dSize;
+                    pDataNum=((unsigned int)((unsigned short *)dumpWrite[cmd_dump.arg].pData-dumpWriteWord))/dumpWrite[cmd_dump.arg].dSize;
                 }
                 break;
             default:
@@ -586,37 +583,37 @@ void * ae2_ctrl_func( void * arg ) {
                  "dumpWrite[%d].dSize=%u;\n"
                  "dumpWrite[%d].dDataLen=%u;\n"
                  "dumpWrite[%d].dWait=%u;\n",
-                 i,dump[i].arg,
-                 dump[i].arg, dumpWrite[dump[i].arg].dAddress,        // I/F Address
-                 dump[i].arg, 
-                 (dumpWrite[dump[i].arg].dSize==sizeof( unsigned char ))?"dumpWriteByte":"dumpWriteWord",
+                 i,cmd_dump.arg,
+                 cmd_dump.arg, dumpWrite[cmd_dump.arg].dAddress,        // I/F Address
+                 cmd_dump.arg, 
+                 (dumpWrite[cmd_dump.arg].dSize==sizeof( unsigned char ))?"dumpWriteByte":"dumpWriteWord",
                  pDataNum,                                           // Write Pointer 
-                 dump[i].arg, dumpWrite[dump[i].arg].dSize,          // Write Size(data type size)
-                 dump[i].arg, dumpWrite[dump[i].arg].dDataLen,       // Data Length
-                 dump[i].arg, dumpWrite[dump[i].arg].dWait );        // Wait ns
+                 cmd_dump.arg, dumpWrite[cmd_dump.arg].dSize,          // Write Size(data type size)
+                 cmd_dump.arg, dumpWrite[cmd_dump.arg].dDataLen,       // Data Length
+                 cmd_dump.arg, dumpWrite[cmd_dump.arg].dWait );        // Wait ns
 
-            switch ( dumpWrite[dump[i].arg].dSize ) {
+            switch ( dumpWrite[cmd_dump.arg].dSize ) {
             case sizeof( unsigned char ):
-                for(dCnt=0;dCnt< dumpWrite[dump[i].arg].dDataLen; ++dCnt) {
-                    DS("dumpWrite[%d] dumpWriteByte[%d]=0x%02x;\n" ,dump[i].arg ,pDataNum+dCnt ,dumpWriteByte[pDataNum+dCnt] );
+                for(dCnt=0;dCnt< dumpWrite[cmd_dump.arg].dDataLen; ++dCnt) {
+                    DS("dumpWrite[%d] dumpWriteByte[%d]=0x%02x;\n" ,cmd_dump.arg ,pDataNum+dCnt ,dumpWriteByte[pDataNum+dCnt] );
                 }
                 break;
             case sizeof( unsigned short ):
-                for(dCnt=0; dCnt< dumpWrite[dump[i].arg].dDataLen; ++dCnt) {
-                    DS("dumpWrite[%d] dumpWriteWord[%d]=0x%04x;\n" ,dump[i].arg ,pDataNum+dCnt ,dumpWriteWord[pDataNum+dCnt] );
+                for(dCnt=0; dCnt< dumpWrite[cmd_dump.arg].dDataLen; ++dCnt) {
+                    DS("dumpWrite[%d] dumpWriteWord[%d]=0x%04x;\n" ,cmd_dump.arg ,pDataNum+dCnt ,dumpWriteWord[pDataNum+dCnt] );
                 }
                 break;
             default:
                 break;
             }
 
-            ioctl(ae2_info.fd, MA_IOCTL_WRITE_REG_WAIT, &dumpWrite[dump[i].arg] );
+            ioctl(ae2_info.fd, MA_IOCTL_WRITE_REG_WAIT, &dumpWrite[cmd_dump.arg] );
 
             break;
             
         case MA_IOCTL_READ_REG_WAIT://3
-            ioctl(ae2_info.fd, MA_IOCTL_READ_REG_WAIT, &dumpRead[dump[i].arg] );
-            DS("ioctl(ae2_info.fd, MA_IOCTL_READ_REG_WAIT, dumpRead[%u] );\n",dump[i].arg);
+            ioctl(ae2_info.fd, MA_IOCTL_READ_REG_WAIT, &dumpRead[cmd_dump.arg] );
+            DS("ioctl(ae2_info.fd, MA_IOCTL_READ_REG_WAIT, dumpRead[%u] );\n",cmd_dump.arg);
             break;
             
         case MA_IOCTL_DISABLE_IRQ://4
@@ -635,8 +632,8 @@ void * ae2_ctrl_func( void * arg ) {
             break;
             
         case MA_IOCTL_WAIT_IRQ://7
-            ioctl(ae2_info.fd, MA_IOCTL_WAIT_IRQ, (int)dump[i].arg );
-            DS("ioctl(ae2_info.fd, MA_IOCTL_WAIT_IRQ, %d );\n",(int)dump[i].arg);
+            ioctl(ae2_info.fd, MA_IOCTL_WAIT_IRQ, (int)cmd_dump.arg );
+            DS("ioctl(ae2_info.fd, MA_IOCTL_WAIT_IRQ, %d );\n",(int)cmd_dump.arg);
             break;
             
         case MA_IOCTL_CANCEL_WAIT_IRQ://8
@@ -645,14 +642,27 @@ void * ae2_ctrl_func( void * arg ) {
           break;
           
         case MA_IOCTL_SET_GPIO://9
-            ioctl(ae2_info.fd, MA_IOCTL_SET_GPIO, dump[i].arg );
-            DS("ioctl(ae2_info.fd, MA_IOCTL_SET_GPIO, %u );\n",dump[i].arg);
+            ioctl(ae2_info.fd, MA_IOCTL_SET_GPIO, cmd_dump.arg );
+            DS("ioctl(ae2_info.fd, MA_IOCTL_SET_GPIO, %u );\n",cmd_dump.arg);
             break;
             
-      default:
+        default:
             DS(RED "!!!!!!!!!!! E R R O R !!!!!!!!!!!!!\n" DEFAULT "\n");
-          break;
-        }
+            break;
+    }
+}
+
+//----------------------------------------------------------------------------------------------
+void * ae2_ctrl_func( void * arg ) {
+    (void)arg;
+    pthread_detach( pthread_self() );
+    
+    usleep(200);
+    
+    int i;
+    for(i=AE2_INIT_START_COUNT;i<=AE2_INIT_END1_COUNT;i++) {
+    //for(i=AE2_INIT_START_COUNT; i<=50; i++) {
+        ae2_ioctl_play( i );
     }
 
     // 初期化完了
@@ -662,6 +672,7 @@ void * ae2_ctrl_func( void * arg ) {
     return 0;
 }
 
+//----------------------------------------------------------------------------------------------
 void * ae2_ctrl_func_zero( void * arg ) {
     (void)arg;
     pthread_detach( pthread_self() );
@@ -799,6 +810,10 @@ int main(int argc, char **argv)
     mem_data2();
     mem_data3();
     mem_data4();
+    mem_data5();
+    mem_data6();
+    mem_data7();
+    mem_data8();
 
     argc--;
     argv++;
